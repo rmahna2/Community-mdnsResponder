@@ -3,9 +3,9 @@
 
     Abstract: System Preference Pane for Dynamic DNS and Wide-Area DNS Service Discovery
 
-    Copyright: (c) Copyright 2005 Apple Computer, Inc. All rights reserved.
+    Copyright: (c) Copyright 2005-2011 Apple Inc. All rights reserved.
 
-    Disclaimer: IMPORTANT: This Apple software is supplied to you by Apple Computer, Inc.
+    Disclaimer: IMPORTANT: This Apple software is supplied to you by Apple Inc.
     ("Apple") in consideration of your agreement to the following terms, and your
     use, installation, modification or redistribution of this Apple software
     constitutes acceptance of these terms.  If you do not agree with these terms,
@@ -19,7 +19,7 @@
     the Apple Software in its entirety and without modifications, you must retain
     this notice and the following text and disclaimers in all such redistributions of
     the Apple Software.  Neither the name, trademarks, service marks or logos of
-    Apple Computer, Inc. may be used to endorse or promote products derived from the
+    Apple Inc. may be used to endorse or promote products derived from the
     Apple Software without specific prior written permission from Apple.  Except as
     expressly stated in this notice, no other rights or licenses, express or implied,
     are granted by Apple herein, including but not limited to any patent rights that
@@ -54,15 +54,14 @@
 
 @implementation DNSServiceDiscoveryPref
 
-static NSComparisonResult
+static NSInteger
 MyArrayCompareFunction(id val1, id val2, void *context)
 {
 	(void)context; // Unused
     return CFStringCompare((CFStringRef)val1, (CFStringRef)val2, kCFCompareCaseInsensitive);
 }
 
-
-static NSComparisonResult
+static NSInteger
 MyDomainArrayCompareFunction(id val1, id val2, void *context)
 {
 	(void)context; // Unused
@@ -97,8 +96,7 @@ static void ServiceDomainEnumReply( DNSServiceRef sdRef, DNSServiceFlags flags, 
     NSMutableArray * defaultBrowseDomainsArray = nil;
     NSComboBox * domainComboBox;
     NSString * domainString;
-    NSString * currentDomain = nil;
-	char decodedDomainString[kDNSServiceMaxDomainName] = "\0";
+    char decodedDomainString[kDNSServiceMaxDomainName] = "\0";
     char nextLabel[256] = "\0";
     char * buffer = (char *)replyDomain;
     
@@ -116,7 +114,6 @@ static void ServiceDomainEnumReply( DNSServiceRef sdRef, DNSServiceFlags flags, 
     if (enumType & kDNSServiceFlagsRegistrationDomains) {
         domainArray    = [me registrationDataSource];
         domainComboBox = [me regDomainsComboBox];
-        currentDomain  = [me currentRegDomain];
     } else { 
         domainArray    = [me browseDataSource];
         domainComboBox = [me browseDomainsComboBox];
@@ -262,6 +259,7 @@ MyDNSServiceAddServiceToRunLoop(MyDNSServiceState * query)
     assert(rls != NULL);
     
 	CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopCommonModes);
+	CFRelease(rls);
 
     CFRelease(keys);
 	CFRelease(store);
@@ -335,18 +333,18 @@ MyDNSServiceAddServiceToRunLoop(MyDNSServiceState * query)
 		currentHostName = [[NSString alloc] initWithString:@""];
     }
 
-    [origDict release];
-    CFRelease(store);
+    if (origDict) CFRelease((CFDictionaryRef)origDict);
+    if (store) CFRelease(store);
 }
 
 
-- (void)tableViewSelectionDidChange:(NSNotification *)notification;
+- (void)tableViewSelectionDidChange:(NSNotification *)notification
 {
 	[removeBrowseDomainButton setEnabled:[[notification object] numberOfSelectedRows]];
 }
 
 
-- (void)setBrowseDomainsComboBox;
+- (void)setBrowseDomainsComboBox
 {
 	NSString * domain = nil;
 	
@@ -361,7 +359,7 @@ MyDNSServiceAddServiceToRunLoop(MyDNSServiceState * query)
 }
 
 
-- (IBAction)addBrowseDomainClicked:(id)sender;
+- (IBAction)addBrowseDomainClicked:(id)sender
 {
 	[self setBrowseDomainsComboBox];
 
@@ -373,7 +371,7 @@ MyDNSServiceAddServiceToRunLoop(MyDNSServiceState * query)
 }
 
 
-- (IBAction)removeBrowseDomainClicked:(id)sender;
+- (IBAction)removeBrowseDomainClicked:(id)sender
 {
 	(void)sender; // Unused
 	int selectedBrowseDomain = [browseDomainList selectedRow];
@@ -383,7 +381,7 @@ MyDNSServiceAddServiceToRunLoop(MyDNSServiceState * query)
 }
 
 
-- (IBAction)enableBrowseDomainClicked:(id)sender;
+- (IBAction)enableBrowseDomainClicked:(id)sender
 {
 	NSTableView *tableView = sender;
     NSMutableDictionary *browseDomainDict;
@@ -395,11 +393,12 @@ MyDNSServiceAddServiceToRunLoop(MyDNSServiceState * query)
 	[browseDomainsArray replaceObjectAtIndex:[tableView clickedRow] withObject:browseDomainDict];
 	[tableView reloadData];
 	[self updateApplyButtonState];
+	[browseDomainDict release];
 }
 
 
 
-- (NSInteger)numberOfRowsInTableView:(NSTableView *)tableView;
+- (NSInteger)numberOfRowsInTableView:(NSTableView *)tableView
 {
 	(void)tableView; // Unused
 	int numberOfRows = 0;
@@ -411,7 +410,7 @@ MyDNSServiceAddServiceToRunLoop(MyDNSServiceState * query)
 }
 
 
-- (void)tabView:(NSTabView *)xtabView didSelectTabViewItem:(NSTabViewItem *)tabViewItem;
+- (void)tabView:(NSTabView *)xtabView didSelectTabViewItem:(NSTabViewItem *)tabViewItem
 {
 	(void)xtabView; // Unused
 	(void)tabViewItem; // Unused
@@ -420,7 +419,7 @@ MyDNSServiceAddServiceToRunLoop(MyDNSServiceState * query)
 }
  
 
-- (id)tableView:(NSTableView *)tableView objectValueForTableColumn:(NSTableColumn *)tableColumn row:(NSInteger)row;
+- (id)tableView:(NSTableView *)tableView objectValueForTableColumn:(NSTableColumn *)tableColumn row:(NSInteger)row
 {
 	(void)tableView; // Unused
 	NSDictionary *browseDomainDict;
@@ -460,7 +459,7 @@ MyDNSServiceAddServiceToRunLoop(MyDNSServiceState * query)
 			[browseDomainsArray sortUsingFunction:MyDomainArrayCompareFunction context:nil];
 			if ([browseDomainsArray isEqualToArray:currentBrowseDomainsArray] == NO) {
 				OSStatus err = WriteBrowseDomain((CFDataRef)[self dataForDomainArray:browseDomainsArray]);
-				if (err != noErr) NSLog(@"WriteBrowseDomain returned %d\n", err);
+				if (err != noErr) NSLog(@"WriteBrowseDomain returned %d\n", (int32_t)err);
 				[currentBrowseDomainsArray release];
 				currentBrowseDomainsArray = [browseDomainsArray copy];
 			}
@@ -682,12 +681,8 @@ MyDNSServiceAddServiceToRunLoop(MyDNSServiceState * query)
 {
     NSString *hostNameString  = [hostName stringValue];
     NSString *regDomainString = [regDomainsComboBox stringValue];
-    
-    NSComparisonResult hostNameResult  = [hostNameString    compare:currentHostName];
-    NSComparisonResult regDomainResult = [regDomainString  compare:currentRegDomain];
-
-    if ((currentHostName && (hostNameResult != NSOrderedSame)) ||
-        (currentRegDomain && (regDomainResult != NSOrderedSame) && ([wideAreaCheckBox state])) ||
+    if ((currentHostName && ([hostNameString compare:currentHostName] != NSOrderedSame)) ||
+        (currentRegDomain && ([regDomainString compare:currentRegDomain] != NSOrderedSame) && ([wideAreaCheckBox state])) ||
         (currentHostName == nil && ([hostNameString length]) > 0) ||
         (currentRegDomain == nil && ([regDomainString length]) > 0) ||
         (currentWideAreaState  != [wideAreaCheckBox state]) ||
@@ -703,7 +698,7 @@ MyDNSServiceAddServiceToRunLoop(MyDNSServiceState * query)
 
 
 
-- (void)controlTextDidChange:(NSNotification *)notification;
+- (void)controlTextDidChange:(NSNotification *)notification
 {
 	(void)notification; // Unused
     [self updateApplyButtonState];
@@ -711,7 +706,7 @@ MyDNSServiceAddServiceToRunLoop(MyDNSServiceState * query)
 
 
 
-- (IBAction)comboAction:(id)sender;
+- (IBAction)comboAction:(id)sender
 {
 	(void)sender; // Unused
     [self updateApplyButtonState];
@@ -859,7 +854,7 @@ MyDNSServiceAddServiceToRunLoop(MyDNSServiceState * query)
 }
 
 
-- (IBAction)revertClicked:(id)sender;
+- (IBAction)revertClicked:(id)sender
 {
     [self restorePreferences];
 	[browseDomainList deselectAll:sender];
@@ -947,7 +942,7 @@ MyDNSServiceAddServiceToRunLoop(MyDNSServiceState * query)
         }
 		CFRelease(itemRef);
 	}
-    return keyName;
+    return [keyName autorelease];
 }
 
 
@@ -1001,7 +996,6 @@ MyDNSServiceAddServiceToRunLoop(MyDNSServiceState * query)
 -(void)savePreferences
 {
     NSString      *hostNameString               = [hostName stringValue];
-    NSString      *browseDomainString           = [browseDomainsComboBox stringValue];
     NSString      *regDomainString              = [regDomainsComboBox stringValue];
     NSString      *tempHostNameSharedSecretName = hostNameSharedSecretName;
     NSString      *tempRegSharedSecretName      = regSharedSecretName;
@@ -1011,7 +1005,6 @@ MyDNSServiceAddServiceToRunLoop(MyDNSServiceState * query)
     OSStatus      err                           = noErr;
 
 	hostNameString                = [self trimCharactersFromDomain:hostNameString];
-	browseDomainString            = [self trimCharactersFromDomain:browseDomainString];
 	regDomainString               = [self trimCharactersFromDomain:regDomainString];
 	tempHostNameSharedSecretName  = [self trimCharactersFromDomain:tempHostNameSharedSecretName];
 	tempRegSharedSecretName       = [self trimCharactersFromDomain:tempRegSharedSecretName];
@@ -1042,7 +1035,7 @@ MyDNSServiceAddServiceToRunLoop(MyDNSServiceState * query)
     // Save hostname.
     if ((currentHostName == NULL) || [currentHostName compare:hostNameString] != NSOrderedSame) {
 		err = WriteHostname((CFDataRef)[self dataForDomain:hostNameString isEnabled:YES]);
-		if (err != noErr) NSLog(@"WriteHostname returned %d\n", err);
+		if (err != noErr) NSLog(@"WriteHostname returned %d\n", (int32_t)err);
         currentHostName = [hostNameString copy];
     } else if (hostSecretWasSet) {
 		WriteHostname((CFDataRef)[self dataForDomain:@"" isEnabled:NO]);
@@ -1054,7 +1047,7 @@ MyDNSServiceAddServiceToRunLoop(MyDNSServiceState * query)
 	if (browseDomainsArray && [browseDomainsArray isEqualToArray:currentBrowseDomainsArray] == NO) {
 		browseDomainData = [self dataForDomainArray:browseDomainsArray];
 		err = WriteBrowseDomain((CFDataRef)browseDomainData);
-		if (err != noErr) NSLog(@"WriteBrowseDomain returned %d\n", err);
+		if (err != noErr) NSLog(@"WriteBrowseDomain returned %d\n", (int32_t)err);
 		currentBrowseDomainsArray = [browseDomainsArray copy];
     }
 	
@@ -1062,7 +1055,7 @@ MyDNSServiceAddServiceToRunLoop(MyDNSServiceState * query)
     if ((currentRegDomain == NULL) || ([currentRegDomain compare:regDomainString] != NSOrderedSame) || (currentWideAreaState != [wideAreaCheckBox state])) {
 
 		err = WriteRegistrationDomain((CFDataRef)[self dataForDomain:regDomainString isEnabled:[wideAreaCheckBox state]]);
-		if (err != noErr) NSLog(@"WriteRegistrationDomain returned %d\n", err);
+		if (err != noErr) NSLog(@"WriteRegistrationDomain returned %d\n", (int32_t)err);
         
 		if (currentRegDomain) CFRelease(currentRegDomain);
         currentRegDomain = [regDomainString copy];
@@ -1133,7 +1126,7 @@ MyDNSServiceAddServiceToRunLoop(MyDNSServiceState * query)
 }
 
 
-- (BOOL)tableView:(NSTableView *)tableView shouldSelectRow:(NSInteger)row;
+- (BOOL)tableView:(NSTableView *)tableView shouldSelectRow:(NSInteger)row
 {
 	(void)row; // Unused
 	(void)tableView; // Unused
